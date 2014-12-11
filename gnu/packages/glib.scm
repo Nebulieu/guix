@@ -56,8 +56,7 @@
 (define dbus
   (package
     (name "dbus")
-    (version "1.8.8")
-    (replacement dbus-1.8.10)                     ;fix for CVE-2014-7824
+    (version "1.8.10")
     (source (origin
              (method url-fetch)
              (uri
@@ -65,7 +64,7 @@
                              version ".tar.gz"))
              (sha256
               (base32
-               "1zfi5grrlryppgrl23im82cqw6l9fk1wlc2ayvzx0yd994v2dayz"))
+               "13mgvwigm931r8n9363imnn0vn6dvc0m322k3p8fs5c8nvyqggqh"))
              (patches (list (search-patch "dbus-localstatedir.patch")))))
     (build-system gnu-build-system)
     (arguments
@@ -116,35 +115,23 @@ or through unencrypted TCP/IP suitable for use behind a firewall with
 shared NFS home directories.")
     (license license:gpl2+)))                     ; or Academic Free License 2.1
 
-(define-public dbus-1.8.10
-  (let ((real-version "1.8.10"))
-    (package (inherit dbus)
-      (source (origin
-                (method url-fetch)
-                (uri
-                 (string-append "http://dbus.freedesktop.org/releases/dbus/dbus-"
-                                real-version ".tar.gz"))
-                (sha256
-                 (base32
-                  "13mgvwigm931r8n9363imnn0vn6dvc0m322k3p8fs5c8nvyqggqh"))
-                (patches (list (search-patch "dbus-localstatedir.patch")))))
-      (replacement #f))))
-
 (define glib
   (package
    (name "glib")
-   (version "2.40.0")
+   (version "2.40.2")
    (source (origin
             (method url-fetch)
             (uri (string-append "mirror://gnome/sources/"
                                 name "/" (string-take version 4) "/"
                                 name "-" version ".tar.xz"))
             (sha256
-             (base32 "1d98mbqjmc34s8095lkw1j1bwvnnkw9581yfvjaikjvfjsaz29qd"))
+             (base32
+              "0ykcf99mhpkza3xwa3k79vgfml8mqiac9044802yi5q8jpr8mzz8"))
             (patches (list (search-patch "glib-tests-homedir.patch")
                            (search-patch "glib-tests-desktop.patch")
                            (search-patch "glib-tests-prlimit.patch")
-                           (search-patch "glib-tests-timer.patch")))))
+                           (search-patch "glib-tests-timer.patch")
+                           (search-patch "glib-tests-gapplication.patch")))))
    (build-system gnu-build-system)
    (outputs '("out"           ; everything
               "bin"           ; glib-mkenums, gtester, etc.; depends on Python
@@ -235,6 +222,11 @@ dynamic loading, and an object system.")
      `(;; In practice, GIR users will need libffi when using
        ;; gobject-introspection.
        ("libffi" ,libffi)))
+    (native-search-paths
+     (list (search-path-specification
+            (variable "GI_TYPELIB_PATH")
+            (directories '("lib/girepository-1.0")))))
+    (search-paths native-search-paths)
     (arguments
      `(#:phases
         (alist-cons-before

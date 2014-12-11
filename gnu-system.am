@@ -72,6 +72,7 @@ GNU_SYSTEM_MODULES =				\
   gnu/packages/databases.scm			\
   gnu/packages/datamash.scm			\
   gnu/packages/dc.scm				\
+  gnu/packages/debug.scm			\
   gnu/packages/dejagnu.scm			\
   gnu/packages/dictionaries.scm			\
   gnu/packages/disk.scm				\
@@ -160,6 +161,7 @@ GNU_SYSTEM_MODULES =				\
   gnu/packages/links.scm			\
   gnu/packages/linux.scm			\
   gnu/packages/lisp.scm				\
+  gnu/packages/llvm.scm				\
   gnu/packages/lout.scm				\
   gnu/packages/lsh.scm				\
   gnu/packages/lsof.scm				\
@@ -231,7 +233,6 @@ GNU_SYSTEM_MODULES =				\
   gnu/packages/scanner.scm			\
   gnu/packages/scheme.scm			\
   gnu/packages/screen.scm			\
-  gnu/packages/scrot.scm			\
   gnu/packages/sdl.scm				\
   gnu/packages/search.scm			\
   gnu/packages/serveez.scm			\
@@ -239,6 +240,7 @@ GNU_SYSTEM_MODULES =				\
   gnu/packages/skribilo.scm			\
   gnu/packages/slim.scm				\
   gnu/packages/smalltalk.scm			\
+  gnu/packages/socat.scm			\
   gnu/packages/ssh.scm				\
   gnu/packages/stalonetray.scm			\
   gnu/packages/swig.scm				\
@@ -252,7 +254,6 @@ GNU_SYSTEM_MODULES =				\
   gnu/packages/tmux.scm				\
   gnu/packages/tor.scm				\
   gnu/packages/tre.scm				\
-  gnu/packages/unclutter.scm			\
   gnu/packages/unrtf.scm			\
   gnu/packages/upnp.scm				\
   gnu/packages/uucp.scm				\
@@ -279,6 +280,7 @@ GNU_SYSTEM_MODULES =				\
   gnu/packages/xdisorg.scm			\
   gnu/packages/xorg.scm				\
   gnu/packages/yasm.scm				\
+  gnu/packages/yubico.scm			\
   gnu/packages/zile.scm				\
   gnu/packages/zip.scm				\
   gnu/packages/zsh.scm				\
@@ -358,6 +360,7 @@ dist_patch_DATA =						\
   gnu/packages/patches/glib-tests-homedir.patch			\
   gnu/packages/patches/glib-tests-prlimit.patch			\
   gnu/packages/patches/glib-tests-timer.patch			\
+  gnu/packages/patches/glib-tests-gapplication.patch		\
   gnu/packages/patches/glibc-bootstrap-system.patch		\
   gnu/packages/patches/glibc-ldd-x86_64.patch			\
   gnu/packages/patches/gnunet-fix-scheduler.patch		\
@@ -443,6 +446,7 @@ dist_patch_DATA =						\
   gnu/packages/patches/util-linux-perl.patch			\
   gnu/packages/patches/vpnc-script.patch			\
   gnu/packages/patches/w3m-fix-compile.patch			\
+  gnu/packages/patches/wmctrl-64-fix.patch			\
   gnu/packages/patches/xf86-input-synaptics-glibc-2.20.patch	\
   gnu/packages/patches/xf86-video-openchrome-includes.patch	\
   gnu/packages/patches/xmodmap-asprintf.patch
@@ -481,7 +485,7 @@ nodist_bootstrap_mips64el_linux_DATA =					\
 
 # Those files must remain executable, so they remain executable once
 # imported into the store.
-install-data-hook:
+set-bootstrap-executable-permissions:
 	chmod +x $(DESTDIR)$(bootstrapdir)/*/{bash,mkdir,tar,xz}
 
 DISTCLEANFILES =				\

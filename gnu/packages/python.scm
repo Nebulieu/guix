@@ -2196,6 +2196,113 @@ toolkits.")
                 ,@(alist-delete "python-numpydoc" 
                                 (package-inputs matplotlib)))))))
 
+;; Scipy 0.14.0 with Numpy 0.19.X fails several tests.  This is known and
+;; planned to be fixed in 0.14.1.  It is claimed that the failures can safely
+;; be ignored:
+;; http://mail.scipy.org/pipermail/scipy-dev/2014-September/020043.html
+;; https://github.com/scipy/scipy/issues/3853 
+;;
+;; The main test suite procedure prints the summary message:
+;;
+;; Ran 16412 tests in 245.033s
+;; FAILED (KNOWNFAIL=277, SKIP=921, errors=327, failures=42)
+;; 
+;; However, it still does return normally.
+(define-public python-scipy
+  (package
+    (name "python-scipy")
+    (version "0.14.0")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "mirror://sourceforge/scipy"
+                           "/scipy-" version ".tar.gz"))
+       (sha256
+        (base32
+         "053bmz4qmnk4dmxvspfak8r10rpmy6mzwfzgy33z338ppzka6hab"))))
+    (build-system python-build-system)
+    (inputs
+     `(("python-numpy" ,python-numpy)
+       ("python-matplotlib" ,python-matplotlib)
+       ("python-pyparsing" ,python-pyparsing)
+       ("python-nose" ,python-nose)
+       ("python-sphinx" ,python-sphinx)
+       ("atlas" ,atlas)))
+    (native-inputs
+     `(("gfortran" ,gfortran-4.8)
+       ("texlive" ,texlive)
+       ("perl" ,perl)))
+    (outputs '("out" "doc"))
+    (arguments
+     `(#:phases
+       (alist-cons-before
+        'build 'set-environment-variables
+        (lambda* (#:key inputs #:allow-other-keys)
+          (let* ((atlas-threaded
+                  (string-append (assoc-ref inputs "atlas") 
+                                 "/lib/libtatlas.so"))
+                 ;; On single core CPUs only the serial library is created.
+                 (atlas-lib
+                  (if (file-exists? atlas-threaded)
+                      atlas-threaded
+                      (string-append (assoc-ref inputs "atlas") 
+                                     "/lib/libsatlas.so"))))
+            (setenv "ATLAS" atlas-lib)))
+        (alist-cons-after
+         'install 'install-doc
+         (lambda* (#:key outputs #:allow-other-keys)
+           (let* ((data (string-append (assoc-ref outputs "doc") "/share"))
+                  (doc (string-append data "/doc/" ,name "-" ,version))
+                  (html (string-append doc "/html"))
+                  (pyver ,(string-append "PYVER=")))
+             (with-directory-excursion "doc"
+               ;; Without setting this variable we get an encoding error.
+               (setenv "LANG" "en_US.UTF-8")
+               ;; Fix generation of images for mathematical expressions.
+               (substitute* (find-files "source" "conf\\.py")
+                 (("pngmath_use_preview = True")
+                  "pngmath_use_preview = False"))
+               (mkdir-p html)
+               (system* "make" "html" pyver)
+               (system* "make" "latex" "PAPER=a4" pyver)
+               (system* "make" "-C" "build/latex" "all-pdf" "PAPER=a4" pyver)
+               (copy-file "build/latex/scipy-ref.pdf"
+                          (string-append doc "/scipy-ref.pdf"))
+               (with-directory-excursion "build/html"
+                 (for-each (lambda (file)
+                             (let* ((dir (dirname file))
+                                    (tgt-dir (string-append html "/" dir)))
+                               (unless (equal? "." dir)
+                                 (mkdir-p tgt-dir))
+                               (copy-file file (string-append html "/" file))))
+                           (find-files "." ".*"))))))
+         ;; Tests can only be run after the library has been installed and not
+         ;; within the source directory.
+         (alist-cons-after
+          'install 'check
+          (lambda _ 
+            (with-directory-excursion "/tmp"
+              (zero? (system* "python" "-c" "import scipy; scipy.test()"))))
+          (alist-delete 
+           'check 
+           %standard-phases))))))
+    (home-page "http://www.scipy.org/")
+    (synopsis "The Scipy library provides efficient numerical routines")
+    (description "The SciPy library is one of the core packages that make up
+the SciPy stack.  It provides many user-friendly and efficient numerical
+routines such as routines for numerical integration and optimization.")
+    (license bsd-3)))
+
+(define-public python2-scipy
+  (let ((scipy (package-with-python2 python-scipy)))
+    (package (inherit scipy)
+      ;; Use packages customized for python-2.
+      (inputs `(("python2-matplotlib" ,python2-matplotlib)
+                ("python2-numpy" ,python2-numpy)
+                ,@(alist-delete "python-matplotlib" 
+                                (alist-delete "python-numpy" 
+                                              (package-inputs scipy))))))))
+
 (define-public python-sqlalchemy
   (package
     (name "python-sqlalchemy")
@@ -2341,3 +2448,96 @@ a general image processing tool.")
 
 (define-public python2-pillow
   (package-with-python2 python-pillow))
+
+(define-public python-pycparser
+  (package
+    (name "python-pycparser")
+    (version "2.10")
+    (source
+     (origin
+      (method url-fetch)
+      (uri (string-append "https://pypi.python.org/packages/source/p/"
+                          "pycparser/pycparser-" version ".tar.gz"))
+      (sha256
+       (base32
+        "0v5qfq03yvd1pi0dwlgfai0p3dh9bq94pydn19c4pdn0c6v9hzcm"))))
+    (outputs '("out" "doc"))
+    (build-system python-build-system)
+    (native-inputs
+     `(("pkg-config" ,pkg-config)
+       ("python-setuptools" ,python-setuptools)))
+    (arguments
+     `(#:phases 
+       (alist-replace
+        'check
+        (lambda _
+          (with-directory-excursion "tests"
+            (zero? (system* "python" "all_tests.py"))))
+        (alist-cons-after
+         'install 'install-doc
+         (lambda* (#:key outputs #:allow-other-keys)
+           (let* ((data (string-append (assoc-ref outputs "doc") "/share"))
+                  (doc (string-append data "/doc/" ,name "-" ,version))
+                  (examples (string-append doc "/examples")))
+             (mkdir-p examples)
+             (for-each (lambda (file)
+                         (copy-file (string-append "." file)
+                                    (string-append doc file)))
+                       '("/README.rst" "/CHANGES" "/LICENSE"))
+             (copy-recursively "examples" examples)))
+         %standard-phases))))
+    (home-page "https://github.com/eliben/pycparser")
+    (synopsis "C parser in Python")
+    (description
+     "Pycparser is a complete parser of the C language, written in pure Python
+using the PLY parsing library.  It parses C code into an AST and can serve as
+a front-end for C compilers or analysis tools.")
+    (license bsd-3)))
+
+(define-public python2-pycparser
+  (package-with-python2 python-pycparser))
+
+(define-public python-cffi
+  (package
+    (name "python-cffi")
+    (version "0.8.6")
+    (source
+     (origin
+      (method url-fetch)
+      (uri (string-append "https://pypi.python.org/packages/source/c/"
+                          "cffi/cffi-" version ".tar.gz"))
+      (sha256 
+       (base32 "0406j3sgndmx88idv5zxkkrwfqxmjl18pj8gf47nsg4ymzixjci5"))))
+    (build-system python-build-system)
+    (outputs '("out" "doc"))
+    (inputs
+     `(("libffi" ,libffi)))
+    (propagated-inputs ; required at run-time
+     `(("python-pycparser" ,python-pycparser)))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)
+       ("python-sphinx" ,python-sphinx)
+       ("python-setuptools" ,python-setuptools)))
+    (arguments
+     `(#:tests? #f ; FIXME: requires pytest
+       #:phases 
+       (alist-cons-after
+        'install 'install-doc
+        (lambda* (#:key outputs #:allow-other-keys)
+          (let* ((data (string-append (assoc-ref outputs "doc") "/share"))
+                 (doc (string-append data "/doc/" ,name "-" ,version))
+                 (html (string-append doc "/html")))
+            (with-directory-excursion "doc"
+              (system* "make" "html")
+              (mkdir-p html)
+              (copy-recursively "build/html" html))
+            (copy-file "LICENSE" (string-append doc "/LICENSE"))))
+        %standard-phases)))
+    (home-page "http://cffi.readthedocs.org")
+    (synopsis "Foreign function interface for Python")
+    (description
+     "Foreign Function Interface for Python calling C code.")
+    (license expat)))
+
+(define-public python2-cffi
+  (package-with-python2 python-cffi))

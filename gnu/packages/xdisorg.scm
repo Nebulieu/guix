@@ -2,6 +2,7 @@
 ;;; Copyright © 2013, 2014 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2014 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2014 Eric Bavier <bavier@member.fsf.org>
+;;; Copyright © 2014 Alex Kost <alezost@gmail.com>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -27,6 +28,7 @@
   #:use-module (gnu packages compression)
   #:use-module (gnu packages image)
   #:use-module (gnu packages pkg-config)
+  #:use-module (gnu packages glib)
   #:use-module (gnu packages xorg))
 
 ;; packages outside the x.org system proper
@@ -189,3 +191,151 @@ put into mtdev may be from any MT device, specifically type A without
 contact tracking, type A with contact tracking, or type B with contact
 tracking.")
     (license license:x11)))
+
+(define-public startup-notification
+  (package
+    (name "startup-notification")
+    (version "0.12")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "http://www.freedesktop.org/software/" name
+                           "/releases/" name "-" version ".tar.gz"))
+       (sha256
+        (base32
+         "0jmyryrpqb35y9hd5sgxqy2z0r1snw7d3ljw0jak0n0cjdz1yf9w"))))
+    (build-system gnu-build-system)
+    (native-inputs `(("pkg-config" ,pkg-config)))
+    (inputs
+     `(("libx11" ,libx11)
+       ("xcb-util" ,xcb-util)))
+    (home-page "http://www.freedesktop.org/wiki/Software/startup-notification/")
+    (synopsis "Application startup notification and feedback library")
+    (description
+     "Startup-notification contains a reference implementation of the startup
+notification protocol.  The reference implementation is mostly under an X Window
+System style license, and has no special dependencies.")
+    ;; Most of the code is provided under x11 license.
+    (license license:lgpl2.0+)))
+
+(define-public wmctrl
+  (package
+    (name "wmctrl")
+    (version "1.07")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "http://tomas.styblo.name/wmctrl/dist/wmctrl-"
+                    version ".tar.gz"))
+              (sha256
+               (base32
+                "1afclc57b9017a73mfs9w7lbdvdipmf9q0xdk116f61gnvyix2np"))
+              (patches (list (search-patch "wmctrl-64-fix.patch")))))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:configure-flags
+       (list (string-append "--mandir="
+                            (assoc-ref %outputs "out")
+                            "/share/man"))))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)))
+    (inputs
+     `(("libx11" ,libx11)
+       ("libxmu" ,libxmu)
+       ("glib" ,glib)))
+    (home-page "http://tomas.styblo.name/wmctrl/")
+    (synopsis "Command-line tool to control X window managers")
+    (description
+     "Wmctrl allows to interact with an X window manager that is compatible
+with the EWMH/NetWM specification.  It can query the window manager for
+information, and request for certain window management actions (resize and
+move windows, switch between desktops, etc.)")
+    (license license:gpl2+)))
+
+(define-public scrot
+  (package
+    (name "scrot")
+    (version "0.8")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "http://linuxbrit.co.uk/downloads/scrot-"
+                    version ".tar.gz"))
+              (sha256
+               (base32
+                "1wll744rhb49lvr2zs6m93rdmiq59zm344jzqvijrdn24ksiqgb1"))))
+    (build-system gnu-build-system)
+    (arguments
+     ;; By default, man and doc are put in PREFIX/{man,doc} instead of
+     ;; PREFIX/share/{man,doc}.
+     '(#:configure-flags
+       (list (string-append "--mandir="
+                            (assoc-ref %outputs "out")
+                            "/share/man"))
+       #:phases (alist-replace
+                 'install
+                 (lambda* (#:key inputs outputs #:allow-other-keys)
+                   (let* ((out (assoc-ref outputs "out"))
+                          (doc (string-append out "/share/doc/scrot")))
+                     (mkdir-p doc)
+                     (zero?
+                      (system* "make" "install"
+                               (string-append "docsdir=" doc)))))
+                 %standard-phases)))
+    (inputs
+     `(("libx11" ,libx11)
+       ("giblib" ,giblib)))
+    (home-page "http://linuxbrit.co.uk/software/")
+    (synopsis "Command-line screen capture utility for X Window System")
+    (description
+     "Scrot allows to save a screenshot of a full screen, a window or a part
+of the screen selected by mouse.")
+    ;; This license removes a clause about X Consortium from the original
+    ;; X11 license.
+    (license (license:x11-style "file://COPYING"
+                                "See 'COPYING' in the distribution."))))
+
+(define-public unclutter
+  (package
+    (name "unclutter")
+    (version "8")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "http://ftp.x.org/contrib/utilities/unclutter-"
+                    version ".tar.Z"))
+              (sha256
+               (base32
+                "0ahrr5z6wxqqfyihm112hnq0859zlxisrb3y5232zav58j6sfmdq"))))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:tests? #f                      ; no check target
+       #:phases (alist-delete
+                 'configure
+                 (alist-replace
+                  'install
+                  (lambda* (#:key inputs outputs #:allow-other-keys)
+                    (let* ((out  (assoc-ref outputs "out"))
+                           (bin  (string-append out "/bin"))
+                           (man1 (string-append out "/share/man/man1")))
+                      (mkdir-p bin)
+                      (mkdir-p man1)
+                      (zero?
+                       (system* "make" "install" "install.man"
+                                (string-append "BINDIR=" bin)
+                                (string-append "MANDIR=" man1)))))
+                  %standard-phases))))
+    (inputs `(("libx11" ,libx11)))
+    (home-page "http://ftp.x.org/contrib/utilities/")
+    (synopsis "Hide idle mouse cursor")
+    (description
+     "Unclutter is a program which runs permanently in the background of an
+X11 session.  It checks on the X11 pointer (cursor) position every few
+seconds, and when it finds it has not moved (and no buttons are pressed
+on the mouse, and the cursor is not in the root window) it creates a
+small sub-window as a child of the window the cursor is in.  The new
+window installs a cursor of size 1x1 but a mask of all 0, i.e. an
+invisible cursor.  This allows you to see all the text in an xterm or
+xedit, for example.  The human factors crowd would agree it should make
+things less distracting.")
+    (license license:public-domain)))
